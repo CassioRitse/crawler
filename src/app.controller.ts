@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Crawler } from './crawler';
 
@@ -11,12 +11,17 @@ export class AppController {
 
   @Get()
   getHello(): string {
-    this.crawler.download();
+    this.crawler.downloadPdf();
     return this.appService.getHello();
   }
 
   @Get('all')
   getoab(): any {
-    return this.crawler.getAllProcesses();
+    return this.crawler.execute();
+  }
+
+  @Get('/:keyword')
+  getone(@Param() params: any): any {
+    return this.crawler.execute(params.keyword);
   }
 }
