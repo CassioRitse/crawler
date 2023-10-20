@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Crawler } from './crawler';
 
@@ -20,8 +20,9 @@ export class AppController {
     return this.crawler.execute();
   }
 
-  @Get('/:keyword')
-  getone(@Param() params: any): any {
-    return this.crawler.execute(params.keyword);
+  @Get('/filtro')
+  getone(@Query('keywords') keywords: Array<string> | string): any {
+    const keywordsArray = Array.isArray(keywords) ? keywords : [keywords];
+    return this.crawler.execute(keywordsArray);
   }
 }

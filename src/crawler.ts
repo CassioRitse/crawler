@@ -7,7 +7,7 @@ import { parseMonthToNum } from './enumMonth';
 interface Publication {
   cnjNumber: string;
   number: string;
-  keyword?: string;
+  keywords: string[];
   court: string;
   resume: string;
   content: string;
@@ -30,7 +30,7 @@ export class Crawler {
   pdfText: string;
   regexProcesso =
     /(?:Processo)(?:\s+)(?:Nº)(?:\s)(ROT|RORSum|ATOrd|ATSum|RPV|AR|CumPrSe|CumSen|CartPrecCiv|HTE)(?:\s|-)(\d{7}-\d{2}.\d{4}.\d{1,2}.\d{2}.\d{4})[\s\S]+?(?=(Processo)(\s+)(Nº)(\s)(ROT|RORSum|ATOrd|ATSum|RPV|AR|CumPrSe|CumSen|CartPrecCiv|HTE)(\s|-)\d{7}-\d{2}.\d{4}.\d{1,2}.\d{2}.\d{4}|$)/gis;
-  keyword: string;
+  keywords: string[];
   divulgationDate: Date;
   publicationDate: Date;
   allPublications: Process[];
@@ -48,11 +48,12 @@ export class Crawler {
     }
   }
 
-  private setDivulgationDate() {
+  private extractDivulgationDate() {
     const regexDivulgationDate =
       /(?=Data da disponibilização\:)([^\d]+), (\d{1,2}) de ([^\d]+) de (\d{4})/is;
     const matchDate = [...this.pdfText.match(regexDivulgationDate)];
     const monthIndex = parseMonthToNum(matchDate[3]);
+
     this.divulgationDate = new Date(
       Date.UTC(
         parseInt(matchDate[4], 10),
@@ -62,21 +63,21 @@ export class Crawler {
     );
   }
 
-  async execute(keyword?: string) {
+  async execute(keywords?: string[]) {
     try {
       // Ler o conteúdo do PDF
       const dataBuffer = fs.readFileSync(this.outputFilePath);
       const pdfData = await pdf(dataBuffer);
       this.pdfText = pdfData.text;
 
-      this.setDivulgationDate();
+      this.extractDivulgationDate();
       this.publicationDate = new Date(Date.now());
 
-      this.setAllPublications();
+      this.extractAllPublications();
 
-      if (keyword) {
-        this.keyword = keyword;
-        this.setProcessWithKeyword();
+      if (keywords) {
+        this.keywords = keywords;
+        this.getProcessWithKeywords();
         return this.returnAsPublication();
       }
 
@@ -86,7 +87,7 @@ export class Crawler {
     }
   }
 
-  private setAllPublications() {
+  private extractAllPublications() {
     const matchesProcesses = [...this.pdfText.matchAll(this.regexProcesso)];
 
     this.allPublications = matchesProcesses.map((match) => {
@@ -103,11 +104,13 @@ export class Crawler {
     });
   }
 
-  private setProcessWithKeyword() {
-    const regex = new RegExp(this.keyword, 'is');
-    this.publicationsWithKeyWord = this.allPublications.filter((process) =>
-      regex.test(process.content),
-    );
+  private getProcessWithKeywords() {
+    this.publicationsWithKeyWord = this.allPublications.filter((process) => {
+      return this.keywords.every((keyword) => {
+        const regex = new RegExp(keyword, 'is');
+        return regex.test(process.content);
+      });
+    });
   }
 
   private returnAsPublication() {
@@ -122,7 +125,7 @@ export class Crawler {
         return {
           cnjNumber: process.cnjNumber,
           number,
-          keyword: this.keyword,
+          keywords: this.keywords,
           court,
           resume,
           content: process.content,
